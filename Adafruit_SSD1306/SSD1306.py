@@ -23,7 +23,9 @@ import logging
 import time
 
 import Adafruit_GPIO as GPIO
+import Adafruit_GPIO.MCP230xx as MCP
 import Adafruit_GPIO.SPI as SPI
+import Adafruit_GPIO.I2C as I2C
 
 
 # Constants
@@ -71,7 +73,7 @@ class SSD1306Base(object):
 
     def __init__(self, width, height, rst, dc=None, sclk=None, din=None, cs=None,
                  gpio=None, spi=None, i2c_bus=None, i2c_address=SSD1306_I2C_ADDRESS,
-                 i2c=None):
+                 i2c=None, mcp_rst=None):
         self._log = logging.getLogger('Adafruit_SSD1306.SSD1306Base')
         self._spi = None
         self._i2c = None
@@ -81,11 +83,17 @@ class SSD1306Base(object):
         self._buffer = [0]*(width*self._pages)
         # Default to platform GPIO if not provided.
         self._gpio = gpio
+        # Instantiate MCP if rst pin is in mcp.
+        if mcp_rst is not None:
+            self.__mcp_rst = mcp_rst
+            self.__mcp = MCP.MCP23017(address, busnum=1)
+		    self.__mcp.setup(self.__mcp_rst, MCP.GPIO.OUT)
+        
         if self._gpio is None:
             self._gpio = GPIO.get_platform_gpio()
         # Setup reset pin.
         self._rst = rst
-        if not self._rst is None:
+        if not self._rst is None and mcp_rst is None:
             self._gpio.setup(self._rst, GPIO.OUT)
         # Handle hardware SPI
         if spi is not None:
@@ -102,7 +110,6 @@ class SSD1306Base(object):
             self._i2c = i2c.get_i2c_device(i2c_address)
         else:
             self._log.debug('Using hardware I2C with platform I2C provider.')
-            import Adafruit_GPIO.I2C as I2C
             if i2c_bus is None:
                 self._i2c = I2C.get_i2c_device(i2c_address)
             else:
@@ -154,13 +161,22 @@ class SSD1306Base(object):
         if self._rst is None:
             return
         # Set reset high for a millisecond.
-        self._gpio.set_high(self._rst)
+        if mcp_rst is not None:
+            self.__mcp.output(self.__mcp_rst, MCP.GPIO.HIGH)
+        else:
+            self._gpio.set_high(self._rst)
         time.sleep(0.001)
         # Set reset low for 10 milliseconds.
-        self._gpio.set_low(self._rst)
+        if mcp_rst is not None:
+            self.__mcp.output(self.__mcp_rst, MCP.GPIO.LOW)
+        else:
+            self._gpio.set_low(self._rst)
         time.sleep(0.010)
         # Set reset high again.
-        self._gpio.set_high(self._rst)
+        if mcp_rst is not None:
+            self.__mcp.output(self.__mcp_rst, MCP.GPIO.HIGH)
+        else:
+            self._gpio.set_high(self._rst)
 
     def display(self):
         """Write display buffer to physical display."""
