@@ -73,7 +73,7 @@ class SSD1306Base(object):
 
     def __init__(self, width, height, rst, dc=None, sclk=None, din=None, cs=None,
                  gpio=None, spi=None, i2c_bus=None, i2c_address=SSD1306_I2C_ADDRESS,
-                 i2c=None, mcp_rst=None):
+                 i2c=None, mcp_rst=None, mcp_address=None):
         self._log = logging.getLogger('Adafruit_SSD1306.SSD1306Base')
         self._spi = None
         self._i2c = None
@@ -84,16 +84,16 @@ class SSD1306Base(object):
         # Default to platform GPIO if not provided.
         self._gpio = gpio
         # Instantiate MCP if rst pin is in mcp.
-        if mcp_rst is not None:
+        if mcp_rst is not None and mcp_address is not None:
             self.__mcp_rst = mcp_rst
-            self.__mcp = MCP.MCP23017(address, busnum=1)
+            self.__mcp = MCP.MCP23017(mcp_address, busnum=1)
 		    self.__mcp.setup(self.__mcp_rst, MCP.GPIO.OUT)
         
         if self._gpio is None:
             self._gpio = GPIO.get_platform_gpio()
         # Setup reset pin.
         self._rst = rst
-        if not self._rst is None and mcp_rst is None:
+        if not self._rst is None and (mcp_rst is None or mcp_address is None):
             self._gpio.setup(self._rst, GPIO.OUT)
         # Handle hardware SPI
         if spi is not None:
